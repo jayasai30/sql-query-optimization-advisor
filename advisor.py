@@ -5,7 +5,7 @@ from database import explain_query
 
 
 def validate_recommendation(features, prediction):
-
+    # Use actual query features to avoid unrelated recommendations
     if features["select_all"] == 1:
         return "AVOID_SELECT_ALL"
 
@@ -37,88 +37,71 @@ def validate_recommendation(features, prediction):
     if features["order_by"] == 1:
         return "OPTIMIZE_ORDER_BY"
 
-    if (
-        features["table_size"] >= 1000
-        and features["limit"] == 0
-    ):
+    if features["table_size"] >= 1000 and features["limit"] == 0:
         return "USE_LIMIT"
+
+    # Do not accept a subquery prediction if no subquery exists.
+    if prediction == "OPTIMIZE_SUBQUERY" and features["subquery"] == 0:
+        return "NO_CHANGE"
 
     return prediction
 
 
 def generate_advice(recommendation):
-
     advice = {
         "AVOID_SELECT_ALL": (
-            "Avoid SELECT *. Choose only the columns you need. "
-            "This can reduce unnecessary data retrieval.",
-            "SELECT customer_name, city FROM customers;"
+            "Avoid SELECT *. Choose only the columns you need.",
+            "-- Select only the required columns."
         ),
-
         "CREATE_INDEX": (
-            "Consider an index on the column used in WHERE "
-            "or JOIN conditions. Verify the relevant column "
-            "and query plan before creating it.",
-            "-- Example only; replace with a real column:\n"
-            "CREATE INDEX idx_city ON customers(city);"
+            "Consider an index on the relevant WHERE or JOIN column. "
+            "Check the schema and query plan before creating one.",
+            "-- Check whether an index on the filtered column would help."
         ),
-
         "REDUCE_JOINS": (
-            "Review your JOIN operations and remove only those "
-            "that are unnecessary for the required result.",
-            "-- Keep only the JOINs needed by your query."
+            "Review your JOIN operations and remove only unnecessary joins.",
+            "-- Keep only JOINs needed for the required result."
         ),
-
         "OPTIMIZE_GROUP_BY": (
-            "Review your grouping columns and aggregation. "
-            "Check EXPLAIN on a connected database for "
-            "temporary tables or extra sorting.",
+            "Review grouping columns and aggregation. Check EXPLAIN "
+            "on a connected database for extra sorting or temporary tables.",
             "-- Review GROUP BY columns and suitable indexes."
         ),
-
         "OPTIMIZE_ORDER_BY": (
-            "Review the sorting columns. An appropriate index "
-            "may help, depending on the query and execution plan.",
-            "-- Check the ORDER BY columns and query plan."
+            "Review the sorting columns. An appropriate index may help, "
+            "depending on the execution plan.",
+            "-- Check ORDER BY columns and the query plan."
         ),
-
         "OPTIMIZE_SUBQUERY": (
-            "Review the subquery and check whether a JOIN "
-            "would be clearer or more efficient.",
+            "Review the subquery and compare it with a suitable JOIN "
+            "when the result remains equivalent.",
             "-- Compare the subquery with a suitable JOIN."
         ),
-
         "OPTIMIZE_AGGREGATION": (
-            "Check whether you can filter unnecessary rows "
-            "before applying SUM, COUNT, AVG or other aggregates.",
-            "-- Apply appropriate WHERE conditions before aggregation."
+            "Check whether unnecessary rows can be filtered before aggregation.",
+            "-- Apply appropriate filters before aggregation when valid."
         ),
-
         "USE_LIMIT": (
-            "If you need only a few results, consider LIMIT "
-            "to restrict the returned rows.",
-            "SELECT customer_name FROM customers LIMIT 10;"
+            "If you need only a few results, consider using LIMIT.",
+            "-- Add LIMIT only when a restricted result set is appropriate."
         ),
-
         "NO_CHANGE": (
-            "No major issue was detected by the current rules. "
-            "This does not guarantee the query is optimal.",
-            "-- Test execution time and EXPLAIN on a real database."
+            "No specific optimization issue was detected by the current rules. "
+            "This does not guarantee that the query is optimal.",
+            "-- Test execution time and EXPLAIN on a connected database."
         )
     }
 
     return advice.get(
         recommendation,
         (
-            "Review the query and validate possible changes "
-            "before applying them.",
+            "Review the query and validate changes before applying them.",
             "-- Check the query plan and actual execution time."
         )
     )
 
 
 def analyze_sql_query(query, table_name):
-
     features = extract_features(query, table_name)
 
     ml_prediction = predict_optimization(features)
@@ -128,12 +111,8 @@ def analyze_sql_query(query, table_name):
         ml_prediction
     )
 
-    advice, suggested_sql = generate_advice(
-        final_prediction
-    )
+    advice, suggested_sql = generate_advice(final_prediction)
 
-    # MySQL EXPLAIN is optional in demo mode.
-    # Without a hosted database, continue with the advisor.
     try:
         explain_result = explain_query(query)
         database_status = "Connected to database"
