@@ -230,7 +230,7 @@ table_name = st.text_input(
 
 
 # =========================================================
-# ANALYZE BUTTON
+# ANALYZE QUERY
 # =========================================================
 
 if st.button("🚀 Analyze Query", use_container_width=True):
@@ -243,9 +243,31 @@ if st.button("🚀 Analyze Query", use_container_width=True):
 
     else:
         try:
-            # =============================================
-            # GET ALL 7 VALUES FROM ADVISOR.PY
-            # =============================================
+            # ---------------------------------------------
+            # CALL ADVISOR
+            # ---------------------------------------------
+
+            result = analyze_sql_query(query, table_name)
+
+            # Temporary diagnostic
+            st.write(
+                "DEBUG: Number of returned values =",
+                len(result)
+            )
+
+            if not isinstance(result, (tuple, list)):
+                st.error(
+                    "advisor.py did not return a tuple or list. "
+                    f"Received: {type(result).__name__}"
+                )
+                st.stop()
+
+            if len(result) != 7:
+                st.error(
+                    "Expected 7 values from advisor.py, "
+                    f"but received {len(result)}."
+                )
+                st.stop()
 
             (
                 features,
@@ -255,11 +277,11 @@ if st.button("🚀 Analyze Query", use_container_width=True):
                 suggested_sql,
                 explain_result,
                 database_status
-            ) = analyze_sql_query(query, table_name)
+            ) = result
 
-            # =============================================
+            # ---------------------------------------------
             # QUERY ANALYSIS
-            # =============================================
+            # ---------------------------------------------
 
             st.subheader("📊 Query Analysis")
 
@@ -291,37 +313,35 @@ if st.button("🚀 Analyze Query", use_container_width=True):
                     features["index_available"]
                 )
 
-            # =============================================
-            # MACHINE LEARNING PREDICTION
-            # =============================================
+            # ---------------------------------------------
+            # ML PREDICTION
+            # ---------------------------------------------
 
             st.subheader("🤖 Machine Learning Prediction")
 
-            st.info(
-                f"ML Model Prediction: **{ml_prediction}**"
-            )
+            st.info(f"ML Model Prediction: {ml_prediction}")
 
-            # =============================================
+            # ---------------------------------------------
             # FINAL RECOMMENDATION
-            # =============================================
+            # ---------------------------------------------
 
             st.subheader("🎯 Final Optimization Recommendation")
 
             st.success(
                 "Recommended Action: "
-                f"**{final_prediction.replace('_', ' ')}**"
+                f"**{str(final_prediction).replace('_', ' ')}**"
             )
 
-            # =============================================
-            # OPTIMIZATION ADVICE
-            # =============================================
+            # ---------------------------------------------
+            # ADVICE
+            # ---------------------------------------------
 
             st.subheader("💡 Optimization Advice")
             st.write(advice)
 
-            # =============================================
+            # ---------------------------------------------
             # SUGGESTED SQL
-            # =============================================
+            # ---------------------------------------------
 
             st.subheader("🛠️ Suggested SQL or Action")
 
@@ -332,19 +352,19 @@ if st.button("🚀 Analyze Query", use_container_width=True):
 
             st.caption(
                 "Review suggested SQL before using it. "
-                "Examples may need adjustment for your schema."
+                "Examples may need adjustment for your database schema."
             )
 
-            # =============================================
+            # ---------------------------------------------
             # DATABASE STATUS
-            # =============================================
+            # ---------------------------------------------
 
             st.subheader("🗄️ Database Status")
             st.info(database_status)
 
-            # =============================================
-            # DETAILED FEATURES
-            # =============================================
+            # ---------------------------------------------
+            # FEATURE DETAILS
+            # ---------------------------------------------
 
             st.subheader("🔎 Detailed Feature Values")
 
@@ -385,9 +405,9 @@ if st.button("🚀 Analyze Query", use_container_width=True):
                 hide_index=True
             )
 
-            # =============================================
+            # ---------------------------------------------
             # MYSQL EXPLAIN
-            # =============================================
+            # ---------------------------------------------
 
             st.subheader("🧠 MySQL EXPLAIN Analysis")
 
@@ -405,18 +425,14 @@ if st.button("🚀 Analyze Query", use_container_width=True):
             else:
                 st.warning(
                     "EXPLAIN results are unavailable. "
-                    "The online demo does not have a live "
-                    "MySQL connection configured."
+                    "The online demo has no live MySQL connection."
                 )
 
         except Exception as e:
             st.error(f"Error while analyzing query: {e}")
 
-            st.info(
-                "If the error mentions unpacking values, "
-                "check that app.py and advisor.py use the "
-                "same return-value structure."
-            )
+            with st.expander("Technical error details"):
+                st.exception(e)
 
 
 # =========================================================
