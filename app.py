@@ -249,11 +249,7 @@ if st.button("🚀 Analyze Query", use_container_width=True):
 
             result = analyze_sql_query(query, table_name)
 
-            # Temporary diagnostic
-            st.write(
-                "DEBUG: Number of returned values =",
-                len(result)
-            )
+            
 
             if not isinstance(result, (tuple, list)):
                 st.error(
